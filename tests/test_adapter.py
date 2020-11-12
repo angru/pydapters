@@ -1,4 +1,4 @@
-from pydapters import Adapter, NestedField, preprocess, postprocess
+from pydapters import Adapter, NestedField, preprocess, postprocess, Field
 
 
 class Ad(Adapter):
@@ -47,3 +47,11 @@ def test_simple():
     r = s.adapt({'a': {'b': 'c'}})
 
     assert r == {'a': {'b': 'c', 'z': {'x': 'y'}, 'g': 2}}
+
+
+def test_field():
+    class Address(Adapter):
+        street = Field(destination='st.')
+        number = Field(origin='nb.')
+
+    assert Address().adapt({'street': 'First', 'nb.': 1}) == {'st.': 'First', 'number': 1}

@@ -108,7 +108,7 @@ class NestedField(Field):
         self._adapter_params = adapter_params
 
     @property
-    def adapter(self):
+    def adapter(self) -> 'Adapter':
         if isinstance(self._adapter, str):
             adapter_name = self._adapter
 
@@ -120,17 +120,23 @@ class NestedField(Field):
 
         return self._adapter
 
-    def apply(self, data: dict, **kwargs):
-        item = data.pop(self.origin, None)
+    def apply(self, data, **kwargs):
+        # item = data.pop(self.origin, None)
 
-        if item is not None:
-            data[self.destination] = self.adapter.adapt(
-                item,
-                many=self.many,
-                **kwargs,
-            )
+        # if item is not None:
+        #     data[self.destination] = self.adapter.adapt(
+        #         item,
+        #         many=self.many,
+        #         **kwargs,
+        #     )
+        #
+        # return data
 
-        return data
+        return self.adapter.adapt(
+            data=data,
+            many=self.many,
+            **kwargs,
+        )
 
 
 class AdapterMeta(type):
@@ -281,9 +287,9 @@ class Adapter(metaclass=AdapterMeta):
 
         return data
 
-    def _adapt(self, data: t.Any, **kwargs) -> t.Any:
+    def _adapt(self, data: dict, **kwargs) -> t.Any:
         for field in self.fields:
-            data = field.apply(data, **kwargs)
+            data[field.destination] = field.apply(data.pop(field.origin, None), **kwargs)
 
         return data
 
