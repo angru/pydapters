@@ -195,9 +195,38 @@
       
     
     
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Overview
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+    
     <a href="." class="md-nav__link md-nav__link--active">
       Overview
     </a>
+    
+      
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#simple-example" class="md-nav__link">
+    Simple example
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
     
   </li>
 
@@ -219,6 +248,21 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#simple-example" class="md-nav__link">
+    Simple example
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -236,6 +280,29 @@
                 
                 <h1 id="pydapters">pydapters</h1>
 <p><em>Data transformation library</em></p>
+<h2 id="simple-example">Simple example</h2>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">pydapters</span> <span class="kn">import</span> <span class="n">Adapter</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">preprocess</span><span class="p">,</span> <span class="n">postprocess</span>
+
+<span class="k">class</span> <span class="nc">Address</span><span class="p">(</span><span class="n">Adapter</span><span class="p">):</span>
+    <span class="nd">@preprocess</span>
+    <span class="k">def</span> <span class="nf">change_street</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;street&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Second&#39;</span>
+
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="nd">@postprocess</span>
+    <span class="k">def</span> <span class="nf">chnage_number</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">data</span><span class="p">[</span><span class="s1">&#39;number&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="n">street</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">destination</span><span class="o">=</span><span class="s1">&#39;st.&#39;</span><span class="p">)</span>
+    <span class="n">number</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">origin</span><span class="o">=</span><span class="s1">&#39;nb.&#39;</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="n">Address</span><span class="p">()</span><span class="o">.</span><span class="n">adapt</span><span class="p">({</span><span class="s1">&#39;street&#39;</span><span class="p">:</span> <span class="s1">&#39;First&#39;</span><span class="p">,</span> <span class="s1">&#39;nb.&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span> <span class="o">==</span> <span class="p">{</span>
+    <span class="s1">&#39;st.&#39;</span><span class="p">:</span> <span class="s1">&#39;Second&#39;</span><span class="p">,</span> <span class="s1">&#39;number&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre></div>
                 
               
               
