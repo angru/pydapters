@@ -1,4 +1,5 @@
 import copy
+import dataclasses
 import functools
 import inspect
 import typing as t
@@ -6,7 +7,12 @@ import typing as t
 from pydapters import registry
 
 
-def preprocess(f=None):
+@dataclasses.dataclass
+class ProcessorConfig:
+    many: bool = False
+
+
+def preprocess(f=None, many=False):
     """Декоратор для методов-препроцессоров адаптера, будет вызван перед методом adapt,
         используется для предварительной обработки данных, переданых в адаптер.
         Можно обьявлять произвольное колличество препроцессоров, главное, чтобы они отличались по названию
@@ -14,7 +20,7 @@ def preprocess(f=None):
     def decorator(func):
         @functools.wraps(func)
         def wrap(ff):
-            ff.__preprocessor__ = True
+            ff.__preprocessor__ = ProcessorConfig(many=many)
 
             return ff
 
@@ -26,7 +32,7 @@ def preprocess(f=None):
         return decorator
 
 
-def postprocess(f=None):
+def postprocess(f=None, many=False):
     """Декоратор для методов-постпроцессоров адаптера, будет вызван после метода adapt,
         используется для пост-обработки данных, возвращенных методом adapt.
         Можно обьявлять произвольное колличество постпроцессоров, главное, чтобы они отличались по названию
@@ -35,7 +41,7 @@ def postprocess(f=None):
     def decorator(func):
         @functools.wraps(func)
         def wrap(ff):
-            ff.__postprocessor__ = True
+            ff.__postprocessor__ = ProcessorConfig(many=many)
 
             return ff
 
@@ -127,49 +133,44 @@ class NestedField(Field):
         return data
 
 
-def wrap_adapt(adapt, preprocessors: list, postprocessors: list):
-    """Декоратор, оборачивающий матод adapt класса Adapter, таким образом чтобы сначала выполнялись превпроцессоры,
-    определенные на этом адаптере потом сам метод adapt, а затем постпроцессоры"""
-
-    if hasattr(adapt, '__base_info__'):
-        adapt, base_preprocessors, base_postprocessors = adapt.__base_info__
-        preprocessors = [*preprocessors, *base_preprocessors]
-        postprocessors = [*postprocessors, *base_postprocessors]
-
-    @functools.wraps(adapt)
-    def wrapper(self, data, **kwargs):
-        for preprocessor in preprocessors:
-            data = preprocessor(self, data, **kwargs)
-
-        data = adapt(self, data, **kwargs)
-
-        for postprocessor in postprocessors:
-            data = postprocessor(self, data, **kwargs)
-
-        return data
-
-    wrapper.__base_info__ = (adapt, preprocessors, postprocessors)
-
-    return wrapper
-
-
 class AdapterMeta(type):
     """Мета-класс для всех адаптеров, устанавливает правила обработки полей(Field), препроцессоров, постпроцессоров,
     определенных на классе адаптера"""
-    def __new__(mcs, name, bases, attrs):
+    def __new__(mcs, name, bases, attrs):    # noqa: C901
         fields = {}
         preprocessors = []
         postprocessors = []
+        many_preprocessors = []
+        many_postprocessors = []
 
         for base in bases:
             for attr_name, attr_value in inspect.getmembers(base):
                 if isinstance(attr_value, Field):
                     fields[attr_name] = attr_value
-                elif not issubclass(base, Adapter) and callable(attr_value):
-                    if getattr(attr_value, '__preprocessor__', False):
-                        preprocessors.append(attr_value)
-                    elif getattr(attr_value, '__postprocessor__', False):
-                        postprocessors.append(attr_value)
+                elif callable(attr_value):
+                    preprocessor: ProcessorConfig = getattr(
+                        attr_value,
+                        '__preprocessor__',
+                        None,
+                    )
+
+                    if preprocessor is not None:
+                        if preprocessor.many:
+                            many_preprocessors.append(attr_value)
+                        else:
+                            preprocessors.append(attr_value)
+                    else:
+                        postprocessor: ProcessorConfig = getattr(
+                            attr_value,
+                            '__postprocessor__',
+                            None,
+                        )
+
+                        if postprocessor is not None:
+                            if postprocessor.many:
+                                many_postprocessors.append(attr_value)
+                            else:
+                                postprocessors.append(attr_value)
 
         for attr_name, attr_value in attrs.items():
             if inspect.isclass(attr_value) and issubclass(attr_value, Field):
@@ -186,16 +187,33 @@ class AdapterMeta(type):
                 if attr_value.origin is None:
                     attr_value.origin = attr_name
             elif callable(attr_value):
-                if getattr(attr_value, '__preprocessor__', False):
-                    preprocessors.append(attr_value)
-                elif getattr(attr_value, '__postprocessor__', False):
-                    postprocessors.append(attr_value)
+                preprocessor: ProcessorConfig = getattr(
+                    attr_value,
+                    '__preprocessor__',
+                    None,
+                )
+
+                if preprocessor is not None:
+                    if preprocessor.many:
+                        many_preprocessors.append(attr_value)
+                    else:
+                        preprocessors.append(attr_value)
+                else:
+                    postprocessor: ProcessorConfig = getattr(
+                        attr_value,
+                        '__postprocessor__',
+                        None,
+                    )
+
+                    if postprocessor is not None:
+                        if postprocessor.many:
+                            many_postprocessors.append(attr_value)
+                        else:
+                            postprocessors.append(attr_value)
 
         klass = super().__new__(mcs, name, bases, attrs)
 
         registry.add(klass)
-
-        klass.adapt = wrap_adapt(klass.adapt, preprocessors, postprocessors)
 
         for field in fields.values():
             if hasattr(field, '__parent_adapter__'):
@@ -205,13 +223,39 @@ class AdapterMeta(type):
 
         klass._fields = list(fields.values())
         klass._preprocessors = preprocessors
+        klass._many_preprocessors = many_preprocessors
         klass._postprocessors = postprocessors
+        klass._many_postprocessors = many_postprocessors
 
         return klass
 
 
 class Adapter(metaclass=AdapterMeta):
     """Базовый класс адаптера. Наследники должны реализовывать метод adapt"""
+    def _apply_many_preprocessors(self, data, **kwargs):
+        for preprocessor in self._many_preprocessors:
+            data = preprocessor(self, data, **kwargs)
+
+        return data
+
+    def _apply_many_postprocessors(self, data, **kwargs):
+        for postprocessor in self._many_postprocessors:
+            data = postprocessor(self, data, **kwargs)
+
+        return data
+
+    def _apply_preprocessors(self, data, **kwargs):
+        for preprocessor in self._preprocessors:
+            data = preprocessor(self, data, **kwargs)
+
+        return data
+
+    def _apply_postprocessors(self, data, **kwargs):
+        for postprocessor in self._postprocessors:
+            data = postprocessor(self, data, **kwargs)
+
+        return data
+
     def adapt(self, data: t.Any, many=False, **kwargs) -> t.Any:
         """Метод, управляющий процессом преобразования данных
 
@@ -219,9 +263,21 @@ class Adapter(metaclass=AdapterMeta):
         :return: преобразованные данные
         """
         if many:
-            data = [self._adapt(item, **kwargs) for item in data]
+            data = self._apply_many_preprocessors(data, **kwargs)
+            data = [
+                self._apply_postprocessors(
+                    self._adapt(
+                        self._apply_preprocessors(item, **kwargs),
+                        **kwargs,
+                    ),
+                    **kwargs,
+                ) for item in data
+            ]
+            data = self._apply_many_postprocessors(data, **kwargs)
         else:
+            data = self._apply_preprocessors(data, **kwargs)
             data = self._adapt(data, **kwargs)
+            data = self._apply_postprocessors(data, **kwargs)
 
         return data
 

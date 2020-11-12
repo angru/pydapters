@@ -1,0 +1,15 @@
+site_name: pydapters
+theme:
+  name: material
+
+repo_name: angru/pydapters
+repo_url: https://github.com/angru/pydapters
+
+nav:
+  - Overview: index.md
+
+markdown_extensions:
+  - codehilite
+  - admonition
+  - markdown_include.include:
+      base_path: docs
