@@ -79,7 +79,8 @@ class Field:
     @name.setter
     def name(self, value):
         assert self._name is None, (
-            'Field instance already have name. You probably try to assign one field instance to multiple adapters'
+            'Field instance already have name. '
+            'You probably try to assign one field instance to multiple adapters'
         )
 
         self._name = value
@@ -289,7 +290,10 @@ class Adapter(metaclass=AdapterMeta):
 
     def _adapt(self, data: dict, **kwargs) -> t.Any:
         for field in self.fields:
-            data[field.destination] = field.apply(data.pop(field.origin, None), **kwargs)
+            data[field.destination] = field.apply(
+                data=data.pop(field.origin, None),
+                **kwargs,
+            )
 
         return data
 

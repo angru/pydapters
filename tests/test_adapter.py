@@ -54,4 +54,10 @@ def test_field():
         street = Field(destination='st.')
         number = Field(origin='nb.')
 
-    assert Address().adapt({'street': 'First', 'nb.': 1}) == {'st.': 'First', 'number': 1}
+    assert Address().adapt({
+        'street': 'First',
+        'nb.': 1,
+    }) == {
+        'st.': 'First',
+        'number': 1,
+    }
