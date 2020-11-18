@@ -20,7 +20,7 @@ class Address(Adapter):
         return data
 
     @postprocess
-    def chnage_number(self, data: dict, **kwargs):
+    def change_number(self, data: dict, **kwargs):
         data['number'] = 2
 
         return data
